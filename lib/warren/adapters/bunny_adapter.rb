@@ -69,12 +69,17 @@ module Warren
       # 
       #   Warren::Queue.subscribe(:default) {|msg, payload| puts msg, payload }
       # 
-      def self.subscribe queue_name, &block
+      def self.subscribe queue_name, opts = {}, &block
         raise NoBlockGiven unless block_given?
         queue_name = self.queue_name if queue_name == :default
         # todo: check if its a valid queue?
         do_connect(queue_name) do |queue|
-          handle_bunny_message(queue.pop, &block)
+          msg = queue.pop(opts)
+          handle_bunny_message(msg, &block)
+          if opts[:ack]
+            queue.ack
+          end
+
         end
       end
 
