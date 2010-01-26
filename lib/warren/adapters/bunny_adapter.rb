@@ -75,11 +75,12 @@ module Warren
         # todo: check if its a valid queue?
         do_connect(queue_name) do |queue|
           msg = queue.pop(opts)
-          handle_bunny_message(msg, &block)
-          if opts[:ack]
-            queue.ack
-          end
+          do_ack = opts[:ack]
+          queue_empty = msg[:payload] == :queue_empty ? true : false
 
+          handle_bunny_message(msg, &block)
+
+          queue.ack if do_ack and not queue_empty
         end
       end
 
