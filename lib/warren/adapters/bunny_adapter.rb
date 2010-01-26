@@ -42,13 +42,13 @@ module Warren
       #
       #   Warren::Queue.publish(:queue_name, {:foo => "name"}) { puts "foo" }
       #
-      def self.publish queue_name, payload, &blk
+      def self.publish queue_name, payload, options = {}, &blk
         queue_name = self.queue_name if queue_name == :default
         # Create a message object if it isn't one already
         msg = Warren::MessageFilter.pack(payload)
 
         do_connect(queue_name, blk) do |queue|
-          queue.publish msg.to_s
+          queue.publish msg.to_s, options
         end
 
       end
@@ -101,10 +101,13 @@ module Warren
       #
       def self.do_connect queue_name, callback = nil, &block
         # Open a connection
-        b = Bunny.new(self.connection.options)
+        options = self.connection.options.dup
+        durable = options.delete(:durable)
+        
+        b = Bunny.new(options)
         b.start
         # Create the queue
-        q = b.queue(queue_name)
+        q = b.queue(queue_name, :durable => durable)
         # Run the code on the queue
         block.call(q)
         # And stop
