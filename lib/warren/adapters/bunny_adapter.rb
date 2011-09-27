@@ -47,8 +47,10 @@ module Warren
         # Create a message object if it isn't one already
         msg = Warren::MessageFilter.pack(payload)
 
-        do_connect(queue_name, blk) do |queue|
-          queue.publish msg.to_s, options
+        do_connect(queue_name, blk) do |queue, client|
+          exchange = client.exchange('') # create a direct exchange
+          exchange.publish msg.to_s,
+              options.merge(:key => queue_name, :persistent => self.connection.options[:durable])
         end
 
       end
@@ -73,7 +75,8 @@ module Warren
         raise NoBlockGiven unless block_given?
         queue_name = self.queue_name if queue_name == :default
         # todo: check if its a valid queue?
-        do_connect(queue_name) do |queue|
+        do_connect(queue_name) do |queue, client|
+          client.qos
           queue.subscribe(opts) do |msg|
             handle_bunny_message(msg, &block)
           end
@@ -99,14 +102,14 @@ module Warren
       def self.do_connect queue_name, callback = nil, &block
         # Open a connection
         options = self.connection.options.dup
-        durable = options.delete(:durable)
+        options.delete(:durable)
         
         b = Bunny.new(options)
         b.start
         # Create the queue
-        q = b.queue(queue_name, :durable => durable)
+        q = b.queue(queue_name)
         # Run the code on the queue
-        block.call(q)
+        block.call(q, b)
         # And stop
         b.stop
         # Returns the block return value or true
