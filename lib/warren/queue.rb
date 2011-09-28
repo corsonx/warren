@@ -76,6 +76,30 @@ module Warren
       self.adapter.subscribe(*args, &blk)
     end
 
+    #
+    # Sends the stay_connected message to the adapter class
+    #
+    def self.stay_connected *args, &blk
+      raise(InvalidAdapter, "stay_connected method missing") unless @@adapter.respond_to?(:stay_connected)
+      self.adapter.stay_connected(*args, &blk)
+    end
+
+    #
+    # Sends the client message to the adapter class
+    #
+    def self.client *args, &blk
+      raise(InvalidAdapter.new("client method missing")) unless @@adapter.respond_to?(:client)
+      self.adapter.client(*args, &blk)
+    end
+
+    #
+    # Sends the reset message to the adapter class
+    #
+    def self.reset *args, &blk
+      raise(InvalidAdapter.new("reset method missing")) unless @@adapter.respond_to?(:reset)
+      self.adapter.reset(*args, &blk)
+    end
+
 		def self.logger
 			unless @@logger
 				@@logger = Logger.new(nil)

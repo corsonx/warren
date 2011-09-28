@@ -47,7 +47,7 @@ module Warren
         # Create a message object if it isn't one already
         msg = Warren::MessageFilter.pack(payload)
 
-        do_connect(queue_name, blk) do |queue, client|
+        do_connect(blk) do
           exchange = client.exchange('') # create a direct exchange
           exchange.publish msg.to_s,
               options.merge(:key => queue_name, :persistent => self.connection.options[:durable])
@@ -75,12 +75,44 @@ module Warren
         raise NoBlockGiven unless block_given?
         queue_name = self.queue_name if queue_name == :default
         # todo: check if its a valid queue?
-        do_connect(queue_name) do |queue, client|
+        do_connect do
           client.qos
+          queue = client.queue(queue_name)
           queue.subscribe(opts) do |msg|
             handle_bunny_message(msg, &block)
           end
         end
+      end
+
+      #
+      # Keeps the connection open while running the block.
+      #
+      # Useful when doing lots of publishing.
+      #
+      def self.stay_connected(&blk)
+        old_stay_connected = !!@stay_connected
+        @stay_connected = true
+        blk.arity == 1 ? blk.call(self) : blk.call
+      ensure
+        @stay_connected = old_stay_connected
+        client.stop if !@stay_connected && client.status == :connected
+      end
+
+      #
+      # Allow low-level access to the bunny client.
+      #
+      def self.client
+        @client ||= Bunny.new(self.connection.options.reject { |k,v| k == :durable })
+      end
+
+      #
+      # Reset the connection.
+      #
+      # Useful when using a forking application server like Passenger or Unicorn
+      #
+      def self.reset
+        @client.stop if @client rescue nil
+        @client = nil
       end
 
       private
@@ -99,19 +131,13 @@ module Warren
       #
       # Connects and does the stuff its told to!
       #
-      def self.do_connect queue_name, callback = nil, &block
-        # Open a connection
-        options = self.connection.options.dup
-        options.delete(:durable)
-        
-        b = Bunny.new(options)
-        b.start
-        # Create the queue
-        q = b.queue(queue_name)
-        # Run the code on the queue
-        block.call(q, b)
+      def self.do_connect callback = nil, &block
+        # Open a connection if not already open
+        client.start if client.status == :not_connected
+        # Run the code
+        block.call
         # And stop
-        b.stop
+        client.stop unless @stay_connected
         # Returns the block return value or true
         callback.nil? ? true : callback.call
       end

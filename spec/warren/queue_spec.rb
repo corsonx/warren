@@ -26,7 +26,8 @@ describe Warren::Queue do
   describe "adapter" do
 
     before(:each) do
-      @adapter = mock 'adapter', :publish => "publish", :subscribe => "subscribe"
+      @adapter = mock 'adapter', :publish => "publish", :subscribe => "subscribe",
+          :client => "client", :reset => "reset", :stay_connected => "stay_connected"
       Warren::Queue.adapter = @adapter
     end
 
@@ -87,6 +88,29 @@ describe Warren::Queue do
 
       Warren::Queue.subscribe("foo", "bar", block).should == "subscribe"
     end
+
+    it "should pass client through to the adapter" do
+      @adapter.should_receive(:client)
+      Warren::Queue.client.should == "client"
+    end
+
+    it "should pass reset through to the adapter" do
+      @adapter.should_receive(:reset)
+      Warren::Queue.reset.should == "reset"
+    end
+
+    it "should pass stay_connected through to the adapter" do
+      @adapter.should_receive(:stay_connected)
+      Warren::Queue.stay_connected.should == "stay_connected"
+    end
+
+    it "should pass a block through to adapter#stay_connected" do
+      block = lambda { true }
+      @adapter.should_receive(:stay_connected).with(block)
+
+      Warren::Queue.stay_connected(block).should == "stay_connected"
+    end
+
   end
   
   describe "logger" do

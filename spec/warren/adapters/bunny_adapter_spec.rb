@@ -6,13 +6,11 @@ describe Warren::Queue::BunnyAdapter do
   before do
     # play nicely with other adapters loaded
     Warren::Queue.adapter = Warren::Queue::BunnyAdapter
+    setup_config_object
+    Warren::Queue.stub(:connection).and_return(Warren::Connection.new(@config))
   end
 
   describe "connection details" do
-
-    before do
-      setup_config_object
-    end
 
     it "should override check_connection_details" do
       Warren::Queue::BunnyAdapter.methods(false).should include("check_connection_details")
@@ -75,6 +73,73 @@ describe Warren::Queue::BunnyAdapter do
     end
   end
 
+  describe 'client' do
+
+    it 'should return the bunny client' do
+      Warren::Queue::BunnyAdapter.client.should be_kind_of(Bunny::Client)
+    end
+
+    it 'should return the same bunny client on consecutive calls' do
+      client = Warren::Queue::BunnyAdapter.client
+      client.should == Warren::Queue::BunnyAdapter.client
+    end
+
+    it 'should have the correct host and vhost set' do
+      Warren::Queue::BunnyAdapter.client.host.should == 'localhost'
+      Warren::Queue::BunnyAdapter.client.vhost.should == '/'
+    end
+
+  end
+
+  describe 'reset' do
+
+    it 'should stop the bunny' do
+      Warren::Queue::BunnyAdapter.client.should_receive(:stop)
+      Warren::Queue::BunnyAdapter.reset
+    end
+
+    it 'should force a new bunny instance' do
+      old_client = Warren::Queue::BunnyAdapter.client
+      Warren::Queue::BunnyAdapter.reset
+      Warren::Queue::BunnyAdapter.client.should_not == old_client
+    end
+
+  end
+
+  describe 'stay_connected' do
+
+    before do
+      @client = fake_bunny(:status => :connected)
+      Warren::Queue::BunnyAdapter.stub(:client).and_return(@client)
+
+      @client.should_receive(:stop).exactly(:once)
+    end
+
+    it 'should not stop the connection after every publish' do
+      Warren::Queue.stay_connected do
+        3.times do
+          Warren::Queue.publish "testq", :foo => "bar"
+        end
+      end
+    end
+
+    it 'should yield the adapter if the block accept one argument' do
+      Warren::Queue.stay_connected do |a|
+        a.should == Warren::Queue.adapter
+      end
+    end
+
+    it 'should allow nesting' do
+      Warren::Queue.stay_connected do
+        Warren::Queue.stay_connected do
+          Warren::Queue.stay_connected do
+          end
+        end
+      end
+    end
+
+  end
+
   protected
 
   def setup_config_object
@@ -88,6 +153,10 @@ describe Warren::Queue::BunnyAdapter do
     @config = {
       :development => @options
     }
+  end
+
+  def fake_bunny(stubs = {})
+    stub({:status => :not_connected, :exchange => stub(:publish => nil)}.merge(stubs))
   end
 
 end
