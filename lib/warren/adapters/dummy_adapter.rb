@@ -1,5 +1,3 @@
-require "rubygems"
-
 class DummyAdapter < Warren::Queue
 
   def self.publish queue_name, payload, options = {}, &blk

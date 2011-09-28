@@ -1,4 +1,3 @@
-require "rubygems"
 require "mq"
 
 class Warren::Queue::AMQPAdapter < Warren::Queue

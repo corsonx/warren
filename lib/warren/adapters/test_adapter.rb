@@ -1,5 +1,3 @@
-require "rubygems"
-
 class TestAdapter < Warren::Queue
   ConnectionFailed = Class.new(StandardError)
   # 
