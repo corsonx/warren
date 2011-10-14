@@ -73,11 +73,13 @@ module Warren
         raise NoBlockGiven unless block_given?
         queue_name = self.queue_name if queue_name == :default
         # todo: check if its a valid queue?
-        do_connect do
-          client.qos
-          queue = client.queue(queue_name)
-          queue.subscribe(opts) do |msg|
-            handle_bunny_message(msg, &block)
+        stay_connected do
+          do_connect do
+            client.qos
+            queue = client.queue(queue_name)
+            queue.subscribe(opts) do |msg|
+              handle_bunny_message(msg, &block)
+            end
           end
         end
       end

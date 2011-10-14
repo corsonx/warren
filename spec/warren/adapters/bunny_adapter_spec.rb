@@ -64,6 +64,17 @@ describe Warren::Queue::BunnyAdapter do
       Warren::Queue::BunnyAdapter.__send__(:handle_bunny_message, headers, &blk)
     end
 
+    it "should only reset the connection once after the subscribe block when publishing in the subscribe-block" do
+      @client = fake_bunny(:status => :connected)
+      Warren::Queue::BunnyAdapter.stub(:client).and_return(@client)
+
+      @client.should_receive(:stop).exactly(:once)
+
+      Warren::Queue::BunnyAdapter.subscribe("foo") do
+        Warren::Queue::BunnyAdapter.publish("bar", "blah")
+      end
+    end
+
     def send_headers_to_bunny_with &blk
       headers = {
         :payload => "my message",
@@ -156,7 +167,15 @@ describe Warren::Queue::BunnyAdapter do
   end
 
   def fake_bunny(stubs = {})
-    stub({:status => :not_connected, :exchange => stub(:publish => nil)}.merge(stubs))
+    stub({:status   => :not_connected, :qos => nil,
+          :queue    => fake_queue,
+          :exchange => stub(:publish => nil)}.merge(stubs))
+  end
+
+  def fake_queue
+    queue = stub
+    def queue.subscribe(queue, &block) block.call({:payload => StringIO.new}) end
+    queue
   end
 
 end
