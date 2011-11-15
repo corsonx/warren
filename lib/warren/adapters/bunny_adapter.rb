@@ -46,7 +46,8 @@ module Warren
         msg = Warren::MessageFilter.pack(payload)
 
         do_connect(blk) do
-          exchange = client.exchange('') # create a direct exchange
+          queue(queue_name) # ensure queue exists
+          exchange = client.exchange('', self.queue_options) # create a direct exchange
           exchange.publish msg.to_s,
               options.merge(:key => queue_name, :persistent => self.connection.options[:durable])
         end
@@ -76,8 +77,7 @@ module Warren
         stay_connected do
           do_connect do
             client.qos
-            queue = client.queue(queue_name)
-            queue.subscribe(opts) do |msg|
+            queue(queue_name).subscribe(opts) do |msg|
               handle_bunny_message(msg, &block)
             end
           end
@@ -102,7 +102,7 @@ module Warren
       # Allow low-level access to the bunny client.
       #
       def self.client
-        @client ||= Bunny.new(self.connection.options.reject { |k,v| k == :durable })
+        @client ||= Bunny.new(self.client_options)
       end
 
       #
@@ -140,6 +140,18 @@ module Warren
         client.stop unless @stay_connected
         # Returns the block return value or true
         callback.nil? ? true : callback.call
+      end
+      
+      def self.queue(queue_name)
+        client.queue(queue_name, self.queue_options)
+      end
+      
+      def self.client_options
+        self.connection.options.reject {|k,v| [:durable, :auto_delete].include?(k) }
+      end
+      
+      def self.queue_options
+        Hash[*self.connection.options.select {|k,v| [:durable, :auto_delete].include?(k) }.flatten]
       end
 
     end
