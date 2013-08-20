@@ -119,7 +119,7 @@ module Warren
     # Changes all keys into symbols
     #
     def symbolize_keys(hash)
-      hash.inject({}){|memo,(k,v)| (v.is_a?(Hash) ? symbolize_keys(v) : memo[k.to_sym] = v); memo}
+      hash.inject({}){|memo,(k,v)| memo[k.to_sym] = (v.is_a?(Hash) ? symbolize_keys(v) : v); memo}
     end
 
     #
